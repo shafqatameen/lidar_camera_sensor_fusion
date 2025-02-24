@@ -13,6 +13,6 @@ else:
        img=cv.imread(str(file))
        print(f"Showing: {file.name}")
        cv.imshow("Image",img)
-       cv.waitKey(110)
+       cv.waitKey(1100)
        cv.destroyAllWindows()
 

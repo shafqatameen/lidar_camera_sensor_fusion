@@ -15,4 +15,6 @@ else:
         pcd = o3d.io.read_point_cloud(str(file))
         print(f"Showing: {file.name}")
         o3d.visualization.draw_geometries([pcd])
+        o3d.waitkey(1100)
+        o3d.destroy_window()
 
