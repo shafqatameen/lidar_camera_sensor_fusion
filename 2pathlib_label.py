@@ -1,14 +1,19 @@
 import cv2
 import os
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 # Paths to image and label directories
 img_dir = "data/img/"
 label_dir = "data/label/"
 
 # Get all image filenames
-image_files = [f for f in os.listdir(img_dir) if f.endswith((".png", ".jpg", ".jpeg"))]
+#image_files = [f for f in os.listdir(img_dir) if f.endswith((".png", ".jpg", ".jpeg"))]
+#image_files=list(sorted(Path("data/img/").glob("*.png")))
+image_files = [str(f.name) for f in sorted(Path("data/img/").glob("*.png"))]
 
+for img_filename in image_files:
+    print(img_filename)
 # Loop through all images
 for img_filename in image_files:
     # Construct full image path
