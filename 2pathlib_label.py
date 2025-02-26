@@ -14,6 +14,7 @@ image_files = [str(f.name) for f in sorted(Path("data/img/").glob("*.png"))]
 
 for img_filename in image_files:
     print(img_filename)
+
 # Loop through all images
 for img_filename in image_files:
     # Construct full image path
