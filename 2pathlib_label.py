@@ -89,7 +89,7 @@ for img_filename in image_files:
     # Display the image with bounding boxes
     plt.figure(figsize=(8, 6))
     plt.imshow(img_rgb)
-    plt.title(f"Image: {img_filename}")
+    plt.title(f"--SHAFQAT AMEEN MIR-- Image: {img_filename}")
     plt.axis("off")  # Hide axes
     plt.show()
 

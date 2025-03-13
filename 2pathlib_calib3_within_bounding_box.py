@@ -1,6 +1,132 @@
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+from pathlib import Path
+from ultralytics import YOLO
+
+# Load calibration parameters from a KITTI calibration file
+def load_calibration(calib_file):
+    if not calib_file.exists():
+        print(f"Error: Calibration file {calib_file} not found.")
+        return None, None, None
+    
+    with calib_file.open('r') as f:
+        lines = f.readlines()
+    
+    def parse_matrix(line):
+        return np.array([float(x) for x in line.split()[1:]]).reshape(3, 4)
+    
+    P2 = parse_matrix(lines[2])  # Camera projection matrix
+    
+    R0_rect = np.eye(4)
+    R0_rect[:3, :3] = np.array([float(x) for x in lines[4].split()[1:]]).reshape(3, 3)
+    
+    Tr_velo_to_cam = np.eye(4)
+    Tr_velo_to_cam[:3, :] = np.array([float(x) for x in lines[5].split()[1:]]).reshape(3, 4)
+    
+    return P2, R0_rect, Tr_velo_to_cam
+
+# Load LiDAR point cloud from a binary file
+def load_lidar_data(bin_file):
+    if not bin_file.exists():
+        print(f"Error: LiDAR file {bin_file} not found.")
+        return np.array([])
+    
+    points = np.fromfile(str(bin_file), dtype=np.float32).reshape(-1, 4)
+    return points[:, :3]
+
+# Project LiDAR points onto the image plane
+def project_lidar_to_image(lidar_points, P2, R0_rect, Tr_velo_to_cam):
+    if lidar_points.size == 0:
+        print("Error: No LiDAR points loaded.")
+        return np.array([]), np.array([])
+    
+    lidar_hom = np.hstack((lidar_points, np.ones((lidar_points.shape[0], 1))))
+    cam_coords = (R0_rect @ Tr_velo_to_cam @ lidar_hom.T).T
+    cam_coords = cam_coords[cam_coords[:, 2] > 0]  # Keep only points in front of the camera
+    img_coords = (P2 @ cam_coords.T).T
+    img_coords[:, 0] /= img_coords[:, 2]
+    img_coords[:, 1] /= img_coords[:, 2]
+    
+    return img_coords[:, :2], cam_coords[:, 2]
+
+# Detect objects using YOLO
+def detect_objects(image_path):
+    model = YOLO("yolov8n.pt")  # Load YOLOv8 model
+    results = model(str(image_path))
+    return results[0].boxes.xyxy.cpu().numpy(), results[0].boxes.conf.cpu().numpy(), results[0].boxes.cls.cpu().numpy()
+
+# Overlay projected LiDAR points and bounding boxes on the image
+def overlay_lidar_on_image(image_path, img_coords, depths):
+    if not image_path.exists():
+        print(f"Error: Image file {image_path} not found.")
+        return
+    
+    img = cv2.imread(str(image_path))
+    if img is None:
+        print("Error: Unable to open image file.")
+        return
+    
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    
+    # Object detection
+    boxes, confs, classes = detect_objects(image_path)
+    
+    for box, conf, cls in zip(boxes, confs, classes):
+        x1, y1, x2, y2 = map(int, box)
+        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+        cv2.putText(img, f"{int(cls)} {conf:.2f}", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+    
+    # Overlay LiDAR points inside bounding boxes
+    for (x, y), depth in zip(img_coords, depths):
+        if 0 <= x < img.shape[1] and 0 <= y < img.shape[0]:
+            for (x1, y1, x2, y2) in boxes:
+                if x1 <= x <= x2 and y1 <= y <= y2:  # Check if point is inside a bounding box
+                    color = (0, int(255 * (1 - depth / max(depths))), int(255 * (depth / max(depths))))
+                    cv2.circle(img, (int(x), int(y)), 2, color, -1)
+                    break
+    
+    plt.imshow(img)
+    plt.axis('off')
+    plt.show()
+
+# File paths for input data
+data_path = Path("data")
+calib_dir = data_path / "calib"
+lidar_dir = data_path / "velodyne"
+image_dir = data_path / "img"
+
+image_indices = ["000031", "000035", "000060", "000080", "000134"]
+
+for idx in image_indices:
+    calib_file = calib_dir / f"{idx}.txt"
+    bin_file = lidar_dir / f"{idx}.bin"
+    image_file = image_dir / f"{idx}.png"
+
+    print(f"\nProcessing {idx}...")
+    
+    if not (calib_file.exists() and bin_file.exists() and image_file.exists()):
+        print(f"Skipping {idx} due to missing files.")
+        continue
+
+    P2, R0_rect, Tr_velo_to_cam = load_calibration(calib_file)
+    if P2 is None:
+        continue
+
+    lidar_points = load_lidar_data(bin_file)
+    img_coords, depths = project_lidar_to_image(lidar_points, P2, R0_rect, Tr_velo_to_cam)
+
+    if img_coords.size > 0:
+        overlay_lidar_on_image(image_file, img_coords, depths)
+
+
+
+
+
+
+'''import numpy as np
+import cv2
+import matplotlib.pyplot as plt
 import os
 from struct import unpack
 import torch
@@ -111,4 +237,4 @@ if P2 is not None:
     img_coords, depths = project_lidar_to_image(lidar_points, P2, R0_rect, Tr_velo_to_cam)
     
     if img_coords.size > 0:
-        overlay_lidar_on_image(image_file, img_coords, depths)
+        overlay_lidar_on_image(image_file, img_coords, depths)'''

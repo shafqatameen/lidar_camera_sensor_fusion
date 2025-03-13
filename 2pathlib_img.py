@@ -12,7 +12,7 @@ else:
     for file in img_files:
        img=cv.imread(str(file))
        print(f"Showing: {file.name}")
-       cv.imshow("Image",img)
-       cv.waitKey(1100)
+       cv.imshow("--SHAFQAT AMEEN MIR-- Image",img)
+       cv.waitKey(11000)
        cv.destroyAllWindows()
 
